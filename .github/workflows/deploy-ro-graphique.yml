@@ -1,0 +1,44 @@
+name: Build and Push ro-graphique Image
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/ro-graphique-app
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Récupérer le code source
+        uses: actions/checkout@v4
+
+      - name: Se connecter à GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Générer les tags (latest + tag court du commit)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=short
+
+      - name: Construire et pousser l'image ro-graphique
+        uses: docker/build-push-action@v6
+        with:
+          context: ./ro-graphique
+          file: ./ro-graphique/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
