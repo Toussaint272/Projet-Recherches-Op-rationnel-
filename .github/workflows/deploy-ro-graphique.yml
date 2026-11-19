@@ -33,7 +33,7 @@ jobs:
           images: ${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=latest
-            type=short
+            type=sha
 
       - name: Construire et pousser l'image ro-graphique
         uses: docker/build-push-action@v6
