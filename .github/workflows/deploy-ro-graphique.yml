@@ -38,7 +38,7 @@ jobs:
       - name: Construire et pousser l'image ro-graphique
         uses: docker/build-push-action@v6
         with:
-          context: ./ro-graphique
-          file: ./ro-graphique/Dockerfile
+          context: .
+          file: ./Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
