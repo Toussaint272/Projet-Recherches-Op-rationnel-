@@ -7,9 +7,9 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 
-# Copier le reste du code source et compiler pour la production
-COPY . .
-RUN npm run build
+# Copier les fichiers de dépendances et installer
+COPY package*.json ./
+RUN npm install
 
 # Étape 2 : Servir les fichiers compilés avec Nginx
 FROM nginx:alpine
