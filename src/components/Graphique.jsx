@@ -1,518 +1,529 @@
-/*import Plot from "react-plotly.js";
-import { useState, useEffect } from "react";
 
-function Graphique({ data }) {
-
-const { constraints, z1, z2, type } = data;
-
-const [offset,setOffset]=useState(0);
-const [showTable,setShowTable]=useState(false);
-
-// ===============================
-// RANGE AUTOMATIQUE
-// ===============================
-
-let maxC=Math.max(...constraints.map(c=>Math.abs(c.c)))*1.5;
-if(!maxC || maxC<10) maxC=10;
-
-const xVals=[];
-for(let i=0;i<=maxC;i+=maxC/100){
-xVals.push(i);
-}
-
-// ===============================
-// DROITES CONTRAINTES
-// ===============================
-
-const traces=constraints.map((con,index)=>{
-
-if(con.b===0){
-
-let x=con.c/con.a;
-
-return{
-x:[x,x],
-y:[0,maxC],
-type:"scatter",
-mode:"lines",
-name:`C${index+1}`,
-line:{width:3}
-};
-
-}
-
-return{
-
-x:xVals,
-y:xVals.map(x=>(con.c-con.a*x)/con.b),
-type:"scatter",
-mode:"lines",
-name:`C${index+1}`,
-line:{width:3}
-
-};
-
-});
-
-// ===============================
-// INTERSECTIONS
-// ===============================
-
-let points=[];
-
-for(let i=0;i<constraints.length;i++){
-
-for(let j=i+1;j<constraints.length;j++){
-
-let c1=constraints[i];
-let c2=constraints[j];
-
-let det=c1.a*c2.b-c2.a*c1.b;
-
-if(det!==0){
-
-let x=(c1.c*c2.b-c2.c*c1.b)/det;
-let y=(c1.a*c2.c-c2.a*c1.c)/det;
-
-points.push({x,y,label:`C${i+1} ∩ C${j+1}`});
-
-}
-
-}
-
-}
-
-points.push({x:0,y:0,label:"Origine"});
-
-// ===============================
-// VERIFIER CONTRAINTES
-// ===============================
-
-const isValid=(p)=>{
-
-return constraints.every(con=>{
-
-let value=con.a*p.x+con.b*p.y;
-
-if(con.sign==="<=") return value<=con.c+1e-6;
-if(con.sign===">=") return value>=con.c-1e-6;
-if(con.sign==="=") return Math.abs(value-con.c)<1e-6;
-
-return false;
-
-});
-
-};
-
-let validPoints=points.filter(p=>p.x>=0 && p.y>=0 && isValid(p));
-
-if(validPoints.length===0)
-return <h3 style={{color:"red"}}>Aucune solution réalisable</h3>;
-
-// ===============================
-// TRI POLYGONE
-// ===============================
-
-const center={
-x:validPoints.reduce((s,p)=>s+p.x,0)/validPoints.length,
-y:validPoints.reduce((s,p)=>s+p.y,0)/validPoints.length
-};
-
-validPoints.sort((a,b)=>
-
-Math.atan2(a.y-center.y,a.x-center.x)-
-Math.atan2(b.y-center.y,b.x-center.x)
-
-);
-
-// ===============================
-// CALCUL Z
-// ===============================
-
-validPoints.forEach(p=>p.Z=z1*p.x+z2*p.y);
-
-let optimal=validPoints[0];
-
-validPoints.forEach(p=>{
-
-if(type==="max"){
-if(p.Z>optimal.Z) optimal=p;
-}else{
-if(p.Z<optimal.Z) optimal=p;
-}
-
-});
-
-// ===============================
-// ANIMATION DROITE OBJECTIF
-// ===============================
-
-useEffect(()=>{
-
-let start= type==="max" ? 0 : optimal.Z*2;
-
-setOffset(start);
-
-const interval=setInterval(()=>{
-
-setOffset(prev=>{
-
-if(type==="max"){
-
-if(prev>=optimal.Z) return prev;
-return prev + optimal.Z/100;
-
-}
-
-if(type==="min"){
-
-if(prev<=optimal.Z) return prev;
-return prev - optimal.Z/100;
-
-}
-
-return prev;
-
-});
-
-},50);
-
-return ()=>clearInterval(interval);
-
-},[optimal.Z,type]);
-
-// ===============================
-// ZONE REALISABLE
-// ===============================
-
-const zoneTrace={
-
-x:validPoints.map(p=>p.x),
-y:validPoints.map(p=>p.y),
-
-fill:"toself",
-type:"scatter",
-mode:"lines",
-
-fillcolor:"rgba(255,0,0,0.25)",
-line:{color:"red",width:3},
-
-name:"Zone réalisable"
-
-};
-
-// ===============================
-// SOMMETS
-// ===============================
-
-const pointsTrace={
-
-x:validPoints.map(p=>p.x),
-y:validPoints.map(p=>p.y),
-
-type:"scatter",
-mode:"markers",
-
-marker:{size:10,color:"black"},
-
-name:"Sommets"
-
-};
-
-// ===============================
-// DROITE OBJECTIF
-// ===============================
-
-const objTrace={
-
-x:xVals,
-
-y:xVals.map(x=>
-z2!==0 ? (offset - z1*x)/z2 : 0
-),
-
-type:"scatter",
-mode:"lines",
-
-line:{color:"blue",width:3,dash:"dash"},
-
-name:"Droite objectif"
-
-};
-
-// ===============================
-// POINT OPTIMAL
-// ===============================
-
-const optimalTrace={
-
-x:[optimal.x],
-y:[optimal.y],
-
-mode:"markers+text",
-
-text:[`Optimum (${optimal.x.toFixed(2)}, ${optimal.y.toFixed(2)})`],
-
-textposition:"top center",
-
-marker:{size:14,color:"green"},
-
-name:"Solution optimale"
-
-};
-
-// ===============================
-// AFFICHAGE
-// ===============================
-
-return(
-
-<div className="mt-4">
-
-<Plot
-
-data={[
-...traces,
-zoneTrace,
-pointsTrace,
-objTrace,
-optimalTrace
-]}
-
-layout={{
-
-width:900,
-height:600,
-
-title:"Méthode Graphique",
-
-xaxis:{
-title:"x₁",
-range:[0,maxC],
-showgrid:true
-},
-
-yaxis:{
-title:"x₂",
-range:[0,maxC],
-showgrid:true
-},
-
-}}
-
-/>
-
-<h4 className="mt-3">
-
-Solution optimale :
-
-x1 = {optimal.x.toFixed(2)} ,
-x2 = {optimal.y.toFixed(2)} ,
-Z = {optimal.Z.toFixed(2)}
-
-</h4>
-
-<br/>
-
-</div>
-
-);
-
-}
-
-export default Graphique;*/
 import Plot from "react-plotly.js";
 import { useState, useEffect } from "react";
 
 function Graphique({ data }) {
+
   const { constraints, z1, z2, type } = data;
   const [offset, setOffset] = useState(0);
 
-  // ===============================
-  // 1. KAJY NY RANGE (ZOOM AUTOMATIQUE)
-  // ===============================
-  let maxC = Math.max(
-    ...constraints.map(c => (c.a !== 0 ? Math.abs(c.c / c.a) : 0)),
-    ...constraints.map(c => (c.b !== 0 ? Math.abs(c.c / c.b) : 0)),
-    10 
-  ) * 1.3;
+  // ==========================================
+  // 1. CALCUL AUTOMATIQUE DU RANGE
+  // ==========================================
 
-  const xVals = [];
-  for (let i = 0; i <= maxC; i += maxC / 100) xVals.push(i);
+  const intercepts = constraints.flatMap(con => {
+    const values = [];
 
-  // ===============================
-  // 2. NY DROITES REHETRA (CONTRAINTES)
-  // ===============================
+    if (con.a !== 0) values.push(Math.abs(con.c / con.a));
+    if (con.b !== 0) values.push(Math.abs(con.c / con.b));
+
+    return values;
+  });
+
+  const maxC = Math.max(10, ...intercepts) * 1.3;
+
+  // Affichage dans les quatre quadrants
+  const graphMin = -maxC;
+  const graphMax = maxC;
+
+  // ==========================================
+  // 2. TRACER LES DROITES DES CONTRAINTES
+  // ==========================================
+
   const traces = constraints.map((con, index) => {
-    let xArr, yArr;
+
+    if (con.a === 0 && con.b === 0) return null;
+
+    let xArr = [];
+    let yArr = [];
+
     if (con.b === 0) {
-      xArr = [con.c / con.a, con.c / con.a];
-      yArr = [0, maxC];
+
+      // Droite verticale : x = c/a
+
+      const x = con.c / con.a;
+
+      xArr = [x, x];
+      yArr = [graphMin, graphMax];
+
+    } else if (con.a === 0) {
+
+      // Droite horizontale : y = c/b
+
+      const y = con.c / con.b;
+
+      xArr = [graphMin, graphMax];
+      yArr = [y, y];
+
     } else {
-      xArr = xVals;
-      yArr = xVals.map(x => (con.c - con.a * x) / con.b);
+
+      // Droite oblique : ax + by = c
+
+      // Prolongement sur toute la largeur du graphique
+
+      xArr = [graphMin, graphMax];
+
+      yArr = xArr.map(x =>
+        (con.c - con.a * x) / con.b
+      );
+
     }
+
     return {
-      x: xArr, y: yArr,
-      type: "scatter", mode: "lines",
+      x: xArr,
+      y: yArr,
+
+      type: "scatter",
+      mode: "lines",
+
       name: `C${index + 1}`,
-      line: { width: 2.5 },
-      hovertemplate: `C${index + 1}: ${con.a}x₁ + ${con.b}x₂ ${con.sign} ${con.c}<extra></extra>`
+
+      line: {
+        width: 2.5
+      },
+
+      hovertemplate:
+        `C${index + 1}: ${con.a}x₁ + ${con.b}x₂ ${con.sign} ${con.c}<extra></extra>`
     };
-  });
 
-  // ===============================
-  // 3. FITADIAVANA NY SOMMETS (INTERSECTIONS)
-  // ===============================
+  }).filter(Boolean);
+
+  // ==========================================
+  // 3. CALCUL DES INTERSECTIONS
+  // ==========================================
+
   let points = [{ x: 0, y: 0 }];
+
   constraints.forEach((c1, i) => {
-    if (c1.a !== 0) points.push({ x: c1.c / c1.a, y: 0 });
-    if (c1.b !== 0) points.push({ x: 0, y: c1.c / c1.b });
+
+    // Intersection avec axe X
+
+    if (c1.a !== 0) {
+      points.push({
+        x: c1.c / c1.a,
+        y: 0
+      });
+    }
+
+    // Intersection avec axe Y
+
+    if (c1.b !== 0) {
+      points.push({
+        x: 0,
+        y: c1.c / c1.b
+      });
+    }
+
+    // Intersection entre deux contraintes
+
     constraints.slice(i + 1).forEach(c2 => {
-      let det = c1.a * c2.b - c2.a * c1.b;
-      if (det !== 0) {
-        points.push({
-          x: (c1.c * c2.b - c2.c * c1.b) / det,
-          y: (c1.a * c2.c - c2.a * c1.c) / det
-        });
+
+      const det = c1.a * c2.b - c2.a * c1.b;
+
+      if (Math.abs(det) > 1e-10) {
+
+        const x =
+          (c1.c * c2.b - c2.c * c1.b) / det;
+
+        const y =
+          (c1.a * c2.c - c2.a * c1.c) / det;
+
+        points.push({ x, y });
+
       }
+
     });
+
   });
 
-  const isValid = (p) => {
+  // ==========================================
+  // 4. VERIFIER LES CONTRAINTES
+  // ==========================================
+
+  const isValid = p => {
+
     if (p.x < -1e-6 || p.y < -1e-6) return false;
+
     return constraints.every(con => {
-      let val = con.a * p.x + con.b * p.y;
-      if (con.sign === "<=") return val <= con.c + 1e-6;
-      if (con.sign === ">=") return val >= con.c - 1e-6;
-      return Math.abs(val - con.c) < 1e-6;
+
+      const val = con.a * p.x + con.b * p.y;
+
+      if (con.sign === "<=") {
+        return val <= con.c + 1e-6;
+      }
+
+      if (con.sign === ">=") {
+        return val >= con.c - 1e-6;
+      }
+
+      if (con.sign === "=") {
+        return Math.abs(val - con.c) < 1e-6;
+      }
+
+      return false;
+
     });
+
   };
 
-  let validPoints = points.filter(isValid);
+  // Supprimer les points invalides et les doublons
+
+  let validPoints = points
+    .filter(isValid)
+    .filter((p, index, arr) =>
+      arr.findIndex(q =>
+        Math.abs(q.x - p.x) < 1e-6 &&
+        Math.abs(q.y - p.y) < 1e-6
+      ) === index
+    );
 
   if (validPoints.length === 0) {
-    return <div className="alert alert-danger shadow mt-4">Aucune solution réalisable (Domaine vide).</div>;
+
+    return (
+      <div className="alert alert-danger shadow mt-4">
+        Aucune solution réalisable (domaine vide).
+      </div>
+    );
+
   }
+
+  // ==========================================
+  // 5. TRI DES SOMMETS
+  // ==========================================
 
   const center = {
     x: validPoints.reduce((s, p) => s + p.x, 0) / validPoints.length,
     y: validPoints.reduce((s, p) => s + p.y, 0) / validPoints.length
   };
-  validPoints.sort((a, b) => Math.atan2(a.y - center.y, a.x - center.x) - Math.atan2(b.y - center.y, b.x - center.x));
 
-  validPoints.forEach(p => p.Z = z1 * p.x + z2 * p.y);
-  let optimal = validPoints.reduce((prev, curr) => 
-    type === "max" ? (curr.Z > prev.Z ? curr : prev) : (curr.Z < prev.Z ? curr : prev)
+  validPoints.sort((a, b) =>
+    Math.atan2(a.y - center.y, a.x - center.x) -
+    Math.atan2(b.y - center.y, b.x - center.x)
   );
 
-  // ===============================
-  // 4. ANIMATION DROITE OBJECTIF
-  // ===============================
+  // ==========================================
+  // 6. CALCUL DE LA FONCTION OBJECTIF
+  // ==========================================
+
+  validPoints.forEach(p => {
+    p.Z = z1 * p.x + z2 * p.y;
+  });
+
+  const optimal = validPoints.reduce((prev, curr) =>
+    type === "max"
+      ? (curr.Z > prev.Z ? curr : prev)
+      : (curr.Z < prev.Z ? curr : prev)
+  );
+
+  // ==========================================
+  // 7. ANIMATION DE LA DROITE OBJECTIF
+  // ==========================================
+
   useEffect(() => {
-    const startVal = type === "max" ? 0 : maxC * (Math.abs(z1) + Math.abs(z2));
+
+    const startVal = type === "max"
+      ? Math.min(0, optimal.Z)
+      : Math.max(0, optimal.Z);
+
     setOffset(startVal);
 
-    const duration = 1500; 
+    const duration = 1500;
     const fps = 30;
-    const totalSteps = (duration / 1000) * fps;
-    const stepValue = (optimal.Z - startVal) / totalSteps;
+    const totalSteps = duration / 1000 * fps;
+
+    let step = 0;
 
     const interval = setInterval(() => {
-      setOffset(prev => {
-        const next = prev + stepValue;
-        if ((type === "max" && next >= optimal.Z) || (type === "min" && next <= optimal.Z)) {
-          clearInterval(interval);
-          return optimal.Z;
-        }
-        return next;
-      });
+
+      step++;
+
+      const progress = Math.min(step / totalSteps, 1);
+
+      setOffset(
+        startVal + (optimal.Z - startVal) * progress
+      );
+
+      if (progress >= 1) {
+        clearInterval(interval);
+      }
+
     }, 1000 / fps);
 
     return () => clearInterval(interval);
-  }, [optimal.Z, type, maxC, z1, z2]);
 
-  // ===============================
-  // 5. TRACES SY LAYOUT (FANITSIANA ECHELLE SY LABELS)
-  // ===============================
+  }, [optimal.Z, type]);
+
+  // ==========================================
+  // 8. ZONE REALISABLE
+  // ==========================================
+
   const zoneTrace = {
-    x: [...validPoints.map(p => p.x), validPoints[0].x],
-    y: [...validPoints.map(p => p.y), validPoints[0].y],
+
+    x: [
+      ...validPoints.map(p => p.x),
+      validPoints[0].x
+    ],
+
+    y: [
+      ...validPoints.map(p => p.y),
+      validPoints[0].y
+    ],
+
     fill: "toself",
+
     fillcolor: "rgba(0, 123, 255, 0.2)",
-    line: { color: "blue", width: 1 },
+
+    line: {
+      color: "blue",
+      width: 1
+    },
+
     name: "Zone réalisable",
-    type: "scatter"
+
+    type: "scatter",
+    mode: "lines"
+
   };
+
+  // ==========================================
+  // 9. DROITE OBJECTIF
+  // ==========================================
+
+  const objCandidates = [];
+
+  if (Math.abs(z2) > 1e-10) {
+
+    [graphMin, graphMax].forEach(x => {
+
+      const y = (offset - z1 * x) / z2;
+
+      if (y >= graphMin && y <= graphMax) {
+        objCandidates.push({ x, y });
+      }
+
+    });
+
+    if (Math.abs(z1) > 1e-10) {
+
+      [graphMin, graphMax].forEach(y => {
+
+        const x = (offset - z2 * y) / z1;
+
+        if (x >= graphMin && x <= graphMax) {
+          objCandidates.push({ x, y });
+        }
+
+      });
+
+    }
+
+  } else if (Math.abs(z1) > 1e-10) {
+
+    const x = offset / z1;
+
+    objCandidates.push(
+      { x, y: graphMin },
+      { x, y: graphMax }
+    );
+
+  }
 
   const objTrace = {
-    x: xVals,
-    y: xVals.map(x => z2 !== 0 ? (offset - z1 * x) / z2 : 0),
-    line: { color: "red", dash: "dash", width: 3 },
-    name: `Objectif Z = ${offset.toFixed(1)}`,
-    type: "scatter"
+
+    x: objCandidates.map(p => p.x),
+    y: objCandidates.map(p => p.y),
+
+    type: "scatter",
+    mode: "lines",
+
+    line: {
+      color: "red",
+      dash: "dash",
+      width: 3
+    },
+
+    name: `Objectif Z = ${offset.toFixed(2)}`
+
   };
+
+  // ==========================================
+  // 10. POINT OPTIMAL
+  // ==========================================
+
+  const optimalTrace = {
+
+    x: [optimal.x],
+    y: [optimal.y],
+
+    type: "scatter",
+    mode: "markers+text",
+
+    marker: {
+      size: 14,
+      color: "red"
+    },
+
+    text: ["S"],
+    textposition: "top right",
+
+    name: "Solution optimale"
+
+  };
+
+  // ==========================================
+  // 11. CONFIGURATION DU GRAPHIQUE
+  // ==========================================
 
   const layout = {
-    width: 750, 
-    height: 700, 
-    title: { text: `<b>Méthode Graphique : ${type.toUpperCase()}</b>`, font: { size: 20 } },
-    xaxis: { 
-      // Nesorina ny title axis mahazatra fa soloina annotation
-      title: "", 
-      range: [0, maxC], 
-      gridcolor: "#eee", 
-      zeroline: true, zerolinecolor: "black", zerolinewidth: 3,
-      constrain: "domain" 
+
+    autosize: true,
+    height: 700,
+
+    title: {
+      text: `<b>Méthode Graphique : ${type.toUpperCase()}</b>`,
+      font: { size: 20 }
     },
-    yaxis: { 
-      title: "", 
-      range: [0, maxC], 
-      gridcolor: "#eee", 
-      zeroline: true, zerolinecolor: "black", zerolinewidth: 3,
-      scaleanchor: "x", 
-      scaleratio: 1 
+
+    xaxis: {
+
+      title: {
+        text: "<b>x₁</b>",
+        standoff: 15
+      },
+
+      range: [graphMin, graphMax],
+
+      showgrid: true,
+      gridcolor: "#eeeeee",
+
+      zeroline: true,
+      zerolinecolor: "black",
+      zerolinewidth: 2,
+
+      showline: true,
+      linecolor: "black"
+
     },
-    annotations: [
-      { // Label x1 eo amin'ny faran'ny axe X
-        x: maxC * 0.98, y: 0, text: "<b>x₁</b>",
-        showarrow: false, yshift: -20, font: { size: 18, color: "black" }
+
+    yaxis: {
+
+      title: {
+        text: "<b>x₂</b>",
+        standoff: 15
       },
-      { // Label x2 eo amin'ny faran'ny axe Y
-        x: 0, y: maxC * 0.98, text: "<b>x₂</b>",
-        showarrow: false, xshift: -20, font: { size: 18, color: "black" }
-      },
-      { 
-        x: optimal.x, y: optimal.y, text: "<b>S</b>",
-        showarrow: true, arrowhead: 2, ax: 35, ay: -35,
-        font: { size: 24, color: "red" }, bgcolor: "white", bordercolor: "red"
-      }
-    ],
-    legend: { orientation: "h", y: -0.2 }
+
+      range: [graphMin, graphMax],
+
+      showgrid: true,
+      gridcolor: "#eeeeee",
+
+      zeroline: true,
+      zerolinecolor: "black",
+      zerolinewidth: 2,
+
+      showline: true,
+      linecolor: "black",
+
+      scaleanchor: "x",
+      scaleratio: 1
+
+    },
+
+    legend: {
+      orientation: "h",
+      y: -0.2
+    },
+
+    margin: {
+      l: 75,
+      r: 40,
+      t: 80,
+      b: 100
+    },
+
+    hovermode: "closest"
+
   };
 
+  // ==========================================
+  // 12. AFFICHAGE FINAL
+  // ==========================================
+
   return (
+
     <div className="card shadow border-0 p-3 bg-white mt-4">
-      <div style={{ display: "flex", justifyContent: "center" }}>
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          width: "100%"
+        }}
+      >
+
         <Plot
-          data={[...traces, zoneTrace, objTrace, {
-            x: [optimal.x], y: [optimal.y],
-            mode: "markers", marker: { size: 12, color: "red" }, name: "Solution S"
-          }]}
+
+          data={[
+            ...traces,
+            zoneTrace,
+            objTrace,
+            optimalTrace
+          ]}
+
           layout={layout}
-          config={{ responsive: true }}
+
+          config={{
+            responsive: true,
+            displaylogo: false
+          }}
+
+          style={{
+            width: "100%",
+            maxWidth: "900px"
+          }}
+
+          useResizeHandler={true}
+
         />
+
       </div>
+
+      {/* RESULTAT OPTIMAL */}
+
       <div className="alert alert-primary mt-3 text-center py-3 shadow-sm">
-        <h4 className="mb-0">
-          📍 Solution Optimale <span className="badge bg-danger">S</span> : 
-          <span className="ms-3 text-dark">x₁ = <b>{optimal.x.toFixed(2)}</b></span>
-          <span className="ms-3 text-dark">x₂ = <b>{optimal.y.toFixed(2)}</b></span>
-          <span className="ms-3 text-success">Z = <b>{optimal.Z.toFixed(2)}</b></span>
+
+        <h4 className="mb-3">
+
+          📍 Solution Optimale
+
+          <span className="badge bg-danger ms-2">
+            S
+          </span>
+
         </h4>
+
+        <div className="d-flex justify-content-center flex-wrap gap-4">
+
+          <span className="text-dark">
+            x₁ = <b>{optimal.x.toFixed(2)}</b>
+          </span>
+
+          <span className="text-dark">
+            x₂ = <b>{optimal.y.toFixed(2)}</b>
+          </span>
+
+          <span className="text-success">
+            Z = <b>{optimal.Z.toFixed(2)}</b>
+          </span>
+
+        </div>
+
       </div>
+
     </div>
+
   );
+
 }
 
 export default Graphique;

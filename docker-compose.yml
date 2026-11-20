@@ -1,0 +1,7 @@
+services:
+  ro-graphique:
+    image: ghcr.io/toussaint272/ro-graphique-app:latest
+    container_name: ro-graphique-app
+    ports:
+      - "3000:80"
+    restart: unless-stopped
