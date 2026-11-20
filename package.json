@@ -1,5 +1,4 @@
 {
-<<<<<<< HEAD
   "name": "ro-graphique",
   "private": true,
   "version": "0.0.0",
@@ -30,10 +29,5 @@
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
     "vite": "^7.3.1"
-=======
-  "dependencies": {
-    "plotly.js": "^3.4.0",
-    "react-plotly.js": "^2.6.0"
->>>>>>> d216a549440bd53e000227c575d6ada65e453f54
   }
 }
